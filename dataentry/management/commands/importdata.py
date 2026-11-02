@@ -4,7 +4,7 @@ import csv
 # importing all the apps
 from django.apps import apps
 
-# Proposed command - python manage.py importdata file_path
+# Proposed command - python manage.py importdata file_path model_name
 
 class Command(BaseCommand):
     help = 'To Import Data From A CSV File'
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         # Search for model across all installed apps
         for app_config in apps.get_app_configs():
             
-            # Try to search the model required
+            # Try to search the model required in this app_config's models
             try:
                 model = apps.get_model(app_config.label, model_name)
                 break  # Stop searching once the model is found
@@ -34,13 +34,28 @@ class Command(BaseCommand):
             raise CommandError(f'Model "{model_name}" not found in any app, try using correct model name!')
         
         # Now lets read the csv file
-        with open(file_path, 'r') as file:
-            reader = csv.DictReader(file)
-            
-            # Now iterate through the file to fetch each record
-            for row in reader:
+        try:
+            with open(file_path, 'r') as file:
+                reader = csv.DictReader(file)
                 
-                # This adds each student data to database
-                model.objects.create(**row)  # **row --> makes it easy to get all column name in one go instead of writting each one.
+                # Now iterate through the file to fetch each record
+                for row in reader:
+                    
+                    # This adds each student data to database
+                    model.objects.create(**row)  # **row --> makes it easy to get all column name in one go instead of writting each one.
         
-        self.stdout.write(self.style.SUCCESS('Successfully Imported!'))
+        # Handles if file is not found i.e file_path is wrong
+        except FileNotFoundError:
+            self.stderr.write(self.style.ERROR(f"File not found: {file_path}"))
+          
+        # Handles errors if data inside the csv file not correct according to the model    
+        except csv.Error as e:
+            self.stderr.write(self.style.ERROR(f"CSV error: {e}"))  
+         
+        # Handles any other errors   
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f"Something went wrong: {e}"))  
+        
+        # This executes when there are no errors   
+        else :         
+            self.stdout.write(self.style.SUCCESS('Successfully Imported!'))
